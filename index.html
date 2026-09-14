@@ -1,0 +1,336 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVO - Contador de pasos</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    margin: 0;
+    background: #e8edf5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.app {
+    width: 100%;
+    max-width: 390px;
+    min-height: 700px;
+    background: #f8faff;
+    border-radius: 30px;
+    overflow: hidden;
+    box-shadow: 0 10px 35px rgba(0,0,0,0.15);
+}
+
+header {
+    background: #4263eb;
+    color: white;
+    padding: 35px 25px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 32px;
+    letter-spacing: 2px;
+    margin: 0;
+}
+
+header p {
+    margin-top: 8px;
+}
+
+.contenido {
+    padding: 30px 25px;
+}
+
+.tarjeta {
+    background: white;
+    border-radius: 22px;
+    padding: 30px 20px;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.06);
+}
+
+.tarjeta h2 {
+    color: #555;
+    font-size: 18px;
+}
+
+#pasos {
+    font-size: 65px;
+    font-weight: bold;
+    color: #4263eb;
+}
+
+.unidad {
+    color: #777;
+}
+
+.meta {
+    margin-top: 25px;
+}
+
+.meta p {
+    display: flex;
+    justify-content: space-between;
+    color: #555;
+    font-size: 14px;
+}
+
+.barra {
+    height: 12px;
+    background: #e5e9f2;
+    border-radius: 10px;
+    margin-top: 10px;
+    overflow: hidden;
+}
+
+#progreso {
+    height: 100%;
+    width: 0%;
+    background: #4263eb;
+    transition: width 0.3s;
+}
+
+.botones {
+    display: flex;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+button {
+    flex: 1;
+    padding: 15px 10px;
+    border: none;
+    border-radius: 15px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#comenzar {
+    background: #4263eb;
+    color: white;
+}
+
+#reiniciar {
+    background: #e5e9f2;
+    color: #333;
+}
+
+.estado {
+    text-align: center;
+    margin-top: 20px;
+    color: #777;
+    font-size: 14px;
+}
+
+footer {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header>
+    <h1>IVO</h1>
+    <p>Tu compañero de actividad</p>
+</header>
+
+<main class="contenido">
+
+<div class="tarjeta">
+
+    <h2>Pasos de hoy</h2>
+
+    <div id="pasos">0</div>
+
+    <div class="unidad">pasos estimados</div>
+
+    <div class="meta">
+        <p>
+            <span>Meta diaria</span>
+            <span>10.000 pasos</span>
+        </p>
+
+        <div class="barra">
+            <div id="progreso"></div>
+        </div>
+    </div>
+
+    <div class="botones">
+        <button id="comenzar">Comenzar</button>
+        <button id="reiniciar">Reiniciar</button>
+    </div>
+
+    <div class="estado" id="estado">
+        Listo para comenzar
+    </div>
+
+</div>
+
+</main>
+
+<footer>
+    IVO © 2026
+</footer>
+
+</div>
+
+<script>
+
+let pasos = 0;
+let activo = false;
+
+let ultimoMovimiento = 0;
+let ultimoPaso = 0;
+
+const contador = document.getElementById("pasos");
+const progreso = document.getElementById("progreso");
+const comenzar = document.getElementById("comenzar");
+const reiniciar = document.getElementById("reiniciar");
+const estado = document.getElementById("estado");
+
+function actualizar() {
+
+    contador.textContent = pasos.toLocaleString("es-ES");
+
+    let porcentaje = (pasos / 10000) * 100;
+
+    progreso.style.width = Math.min(porcentaje, 100) + "%";
+
+}
+
+function detectarMovimiento(evento) {
+
+    if (!activo) return;
+
+    const aceleracion = evento.accelerationIncludingGravity;
+
+    if (!aceleracion) return;
+
+    const x = aceleracion.x || 0;
+    const y = aceleracion.y || 0;
+    const z = aceleracion.z || 0;
+
+    const fuerza = Math.sqrt(x*x + y*y + z*z);
+
+    const ahora = Date.now();
+
+    // Detectar cambios bruscos de movimiento
+    if (Math.abs(fuerza - 9.8) > 1.8) {
+
+        // Evitar contar demasiados pasos seguidos
+        if (ahora - ultimoPaso > 350) {
+
+            pasos++;
+
+            ultimoPaso = ahora;
+
+            actualizar();
+
+        }
+
+    }
+
+}
+
+async function iniciarSensor() {
+
+    if (typeof DeviceMotionEvent === "undefined") {
+
+        estado.textContent = "Este dispositivo no permite sensores";
+
+        return;
+
+    }
+
+    // Algunos navegadores requieren permiso explícito
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
+
+        try {
+
+            const permiso = await DeviceMotionEvent.requestPermission();
+
+            if (permiso !== "granted") {
+
+                estado.textContent = "Permiso de sensores rechazado";
+
+                return;
+
+            }
+
+        } catch (error) {
+
+            estado.textContent = "No se pudo acceder al sensor";
+
+            return;
+
+        }
+
+    }
+
+    window.addEventListener("devicemotion", detectarMovimiento);
+
+    activo = true;
+
+    comenzar.textContent = "Pausar";
+
+    estado.textContent = "Detectando movimientos...";
+
+}
+
+comenzar.addEventListener("click", function() {
+
+    if (activo) {
+
+        activo = false;
+
+        comenzar.textContent = "Continuar";
+
+        estado.textContent = "Contador pausado";
+
+    } else {
+
+        iniciarSensor();
+
+    }
+
+});
+
+reiniciar.addEventListener("click", function() {
+
+    pasos = 0;
+
+    activo = false;
+
+    ultimoPaso = 0;
+
+    actualizar();
+
+    comenzar.textContent = "Comenzar";
+
+    estado.textContent = "Listo para comenzar";
+
+});
+
+</script>
+
+</body>
+</html>
+
